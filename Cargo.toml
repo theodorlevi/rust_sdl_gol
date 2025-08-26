@@ -4,4 +4,5 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-sdl3 = { version = "0.14.41", features = ["ttf", "unsafe_textures"] }
+sdl3 = { version = "0.14.41", features = ["build-from-source", "ttf", "unsafe_textures"] }
+log = "0.4.27"
