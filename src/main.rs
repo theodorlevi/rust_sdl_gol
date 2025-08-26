@@ -7,8 +7,8 @@ use std::time::{Duration, Instant};
 use sdl3::ttf;
 use sdl3::ttf::Font;
 
-const SCALE: u32 = 5;
-const GRID_SIZE: usize = 176;
+const SCALE: u32 = 8;
+const GRID_SIZE: usize = 128;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 struct Grid {
@@ -86,22 +86,30 @@ impl GOL {
     fn get_neighbours(&self, row: usize, col: usize) -> Vec<(usize, usize)> {
         let mut neighbours = Vec::new();
 
-        let rows = self.grid.grid.len() as isize;
-        let cols = self.grid.grid[0].len() as isize;
-        let r = row as isize;
-        let c = col as isize;
+        let total_rows = self.grid.grid.len() as isize;
+        let total_cols = self.grid.grid[0].len() as isize;
 
-        for dr in -1..=1 {
-            for dc in -1..=1 {
-                if dr == 0 && dc == 0 { continue; }
-                let nr = r + dr;
-                let nc = c + dc;
-                if nr >= 0 && nr < rows && nc >= 0 && nc < cols {
-                    let ur = nr as usize;
-                    let uc = nc as usize;
-                    if self.grid.get_cell(ur, uc) {
-                        neighbours.push((ur, uc));
-                    }
+        let current_row_signed = row as isize;
+        let current_col_signed = col as isize;
+
+        for row_offset in -1..=1 {
+            for col_offset in -1..=1 {
+                if row_offset == 0 && col_offset == 0 { continue; }
+
+                let mut neighbor_row_signed = current_row_signed + row_offset;
+                let mut neighbor_col_signed = current_col_signed + col_offset;
+
+                if neighbor_row_signed < 0 { neighbor_row_signed += total_rows; }
+                if neighbor_row_signed >= total_rows { neighbor_row_signed -= total_rows; }
+
+                if neighbor_col_signed < 0 { neighbor_col_signed += total_cols; }
+                if neighbor_col_signed >= total_cols { neighbor_col_signed -= total_cols; }
+
+                let neighbor_row = neighbor_row_signed as usize;
+                let neighbor_col = neighbor_col_signed as usize;
+
+                if self.grid.get_cell(neighbor_row, neighbor_col) {
+                    neighbours.push((neighbor_row, neighbor_col));
                 }
             }
         }
