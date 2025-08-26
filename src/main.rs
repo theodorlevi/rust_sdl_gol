@@ -32,6 +32,36 @@ fn draw_selection(canvas: &mut sdl3::render::Canvas<sdl3::video::Window>) {
     }).unwrap();
 }
 
+fn draw_text(
+    font: &Font,
+    canvas: &mut sdl3::render::Canvas<sdl3::video::Window>,
+    text: &str,
+    font_size: f32,
+    color: Color,
+    x: f32,
+    y: f32,
+) {
+    let frametime_text = canvas.create_texture_from_surface(
+        font.render(
+            format!("{}", text)
+                .as_str())
+            .blended(color)
+            .unwrap()).unwrap();
+
+    draw_selection(canvas);
+
+    canvas.copy(
+        &frametime_text,
+        None,
+        FRect {
+            x,
+            y,
+            w: font_size * text.len() as f32,
+            h: font_size * 2.0
+        }
+    ).unwrap();
+}
+
 fn handle_font_error<'font>(e: Error, font_context: Sdl3TtfContext) -> Font<'font>  {
     warn!("Couldn't load font: {}", e);
     if Path::exists("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf".as_ref()) {
@@ -131,25 +161,27 @@ pub fn main() {
             j += 1;
         }
 
-        let frametime_text = canvas.create_texture_from_surface(
-            font.render(
-                format!("{}", frame_time.as_millis().to_string()
-                ).as_str()
-            ).blended(Color::WHITE).unwrap()
-        ).unwrap();
-        
-        draw_selection(&mut canvas);
+        draw_text(
+            &font,
+            &mut canvas,
+            frame_time.as_millis().to_string().as_str(),
+            12.0,
+            Color::RGB(255, 255, 255),
+            10.0,
+            12.0
+        );
 
-        canvas.copy(
-            &frametime_text,
-            None,
-            FRect {
-                x: 12.0,
-                y: 12.0,
-                w: 16.0 * frame_time.as_millis().to_string().len() as f32,
-                h: 32.0
-            }
-        ).unwrap();
+        if gol.paused {
+            draw_text(
+                &font,
+                &mut canvas,
+                "PAUSED",
+                12.0,
+                Color::RGB(255, 0, 0),
+                10.0,
+                32.0
+            )
+        }
 
         for event in event_pump.poll_iter() {
             match event {
