@@ -51,6 +51,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5a2d2f3481209a6b42eec2fbb49063fb4e8d35b57023401495d4fe0f85c817f0"
 
 [[package]]
+name = "rust_sdl_gol"
+version = "0.1.0"
+dependencies = [
+ "log",
+ "sdl3",
+]
+
+[[package]]
 name = "sdl3"
 version = "0.14.41"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -115,14 +123,6 @@ dependencies = [
  "rpkg-config",
  "sdl3-sys",
  "sdl3-ttf-src",
-]
-
-[[package]]
-name = "sdl3_test"
-version = "0.1.0"
-dependencies = [
- "log",
- "sdl3",
 ]
 
 [[package]]
