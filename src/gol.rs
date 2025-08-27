@@ -1,8 +1,8 @@
 use crate::GRID_SIZE;
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Grid {
-    pub grid: [[bool; GRID_SIZE]; GRID_SIZE],
+    pub grid: Box<[[bool; GRID_SIZE]; GRID_SIZE]>,
 }
 
 impl Grid {
@@ -10,25 +10,37 @@ impl Grid {
         Default::default()
     }
     pub fn get_cell(&self, row: usize, col: usize) -> bool {
-        self.grid[row][col]
+        if col >= GRID_SIZE || row >= GRID_SIZE {
+            return false;
+        } else {
+            self.grid[row][col]
+        }
     }
     pub fn set_cell(&mut self, row: usize, col: usize, state: bool) {
-        self.grid[row][col] = state;
+        if col >= GRID_SIZE || row >= GRID_SIZE {
+            return;
+        } else {
+            self.grid[row][col] = state;
+        }
     }
     pub fn clear_all(&mut self) {
-        self.grid = [[false; GRID_SIZE]; GRID_SIZE];
+        self.grid = Box::from([[false; GRID_SIZE]; GRID_SIZE]);
+    }
+    pub fn get_grid(&mut self) -> Vec<[bool; GRID_SIZE]> {
+        let value = *self.grid;
+        Vec::from(value)
     }
 }
 
 impl Default for Grid {
     fn default() -> Self {
         Grid {
-            grid: [[false; GRID_SIZE]; GRID_SIZE],
+            grid: Box::from([[false; GRID_SIZE]; GRID_SIZE]),
         }
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct GOL {
     pub grid: Grid,
     pub paused: bool,
@@ -50,7 +62,7 @@ impl GOL {
 
         let self_copy = self.clone();
 
-        for row in self.grid.grid {
+        for row in self.grid.get_grid() {
             for col in row {
                 let neighbours = self_copy.get_neighbours(row_i, col_i);
 
