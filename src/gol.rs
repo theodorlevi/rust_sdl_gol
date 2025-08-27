@@ -18,9 +18,6 @@ impl Grid {
     pub fn clear_all(&mut self) {
         self.grid = [[false; GRID_SIZE]; GRID_SIZE];
     }
-    pub fn flip_cell(&mut self, row: usize, col: usize) {
-        self.grid[row][col] = !self.grid[row][col];
-    }
 }
 
 impl Default for Grid {

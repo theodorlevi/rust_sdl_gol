@@ -14,8 +14,8 @@ use sdl3::ttf::{Font, Sdl3TtfContext};
 use crate::gol::*;
 use crate::render::main_draw;
 
-const SCALE: u32 = 16;
-const GRID_SIZE: usize = 64;
+const SCALE: u32 = 8;
+const GRID_SIZE: usize = 128;
 static mut MOUSE_POS: (f32, f32) = (0.0, 0.0);
 
 fn handle_font_error<'font>(e: Error, font_context: Sdl3TtfContext) -> Font<'font>  {
