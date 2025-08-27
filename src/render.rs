@@ -45,7 +45,7 @@ fn round_down_to_multiple(n: f32, step: f32) -> f32 {
 
 fn draw_text(
     font: &Font,
-    canvas: &mut sdl3::render::Canvas<sdl3::video::Window>,
+    canvas: &mut Canvas<Window>,
     text: &str,
     font_size: f32,
     color: Color,
@@ -123,9 +123,6 @@ fn draw_selection(canvas: &mut sdl3::render::Canvas<sdl3::video::Window>, grid: 
 
 fn draw_grid(canvas: &mut Canvas<Window>, gol: GOL) {
     canvas.set_draw_color(Color::RGB(255, 255, 255));
-
-    let mut i: u32;
-    let mut j: u32;
 
     canvas.set_draw_color(Color::RGB(64, 64, 64));
     for row_index in 0..gol.grid.grid.len() {
