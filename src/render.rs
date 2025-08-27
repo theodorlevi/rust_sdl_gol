@@ -10,7 +10,10 @@ pub fn main_draw(canvas: &mut Canvas<Window>, gol: &mut GOL, frame_time: Duratio
     canvas.set_draw_color(Color::RGB(0, 0, 0));
     canvas.clear();
 
+
+    canvas.set_draw_color(Color::RGB(64, 64, 64));
     draw_grid(canvas, &gol);
+
 
     draw_cells(&mut gol.grid, canvas);
 
@@ -20,10 +23,20 @@ pub fn main_draw(canvas: &mut Canvas<Window>, gol: &mut GOL, frame_time: Duratio
         &font,
         canvas,
         frame_time.as_millis().to_string().as_str(),
-        12.0,
+        24.0,
         Color::RGB(255, 255, 255),
         10.0,
-        12.0
+        16.0
+    );
+
+    draw_text(
+        &font,
+        canvas,
+        format!("{}x zoom", unsafe {SCALE}).as_str(),
+        24.0,
+        Color::RGB(255, 255, 255),
+        10.0,
+        48.0
     );
 
     if gol.paused {
@@ -31,7 +44,7 @@ pub fn main_draw(canvas: &mut Canvas<Window>, gol: &mut GOL, frame_time: Duratio
             &font,
             canvas,
             "PAUSED",
-            12.0,
+            24.0,
             Color::RGB(255, 0, 0),
             10.0,
             32.0
@@ -50,8 +63,7 @@ fn draw_text(
     font_size: f32,
     color: Color,
     x: f32,
-    y: f32,
-) {
+    y: f32, ) {
     let text_texture = canvas.create_texture_from_surface(
         font.render(
             format!("{}", text)
@@ -65,8 +77,8 @@ fn draw_text(
         FRect {
             x,
             y,
-            w: font_size * text.len() as f32,
-            h: font_size * 2.0
+            w: (font_size / 2.0) * text.len() as f32,
+            h: font_size
         }
     ).unwrap();
 }
@@ -140,32 +152,47 @@ fn draw_selection(canvas: &mut Canvas<Window>, grid: &Grid) {
 }
 
 fn draw_grid(canvas: &mut Canvas<Window>, gol: &GOL) {
-    canvas.set_draw_color(Color::RGB(255, 255, 255));
+    let mut grid_spacing = 1;
 
-    canvas.set_draw_color(Color::RGB(64, 64, 64));
+    if unsafe {SCALE} < 2.0 {
+        grid_spacing = 8;
+    } else if unsafe {SCALE} < 4.0 {
+        grid_spacing = 5;
+    } else if unsafe {SCALE < 6.0} {
+        grid_spacing = 4;
+    } else if unsafe {SCALE < 8.0} {
+        grid_spacing = 3;
+    } else if unsafe {SCALE < 10.0} {
+        grid_spacing = 2;
+    }
+
     for row_index in 0..gol.grid.grid.len() {
-        canvas.draw_line(
-            FPoint {
-                x: unsafe {CAMERA_POS.1},
-                y: row_index as f32 * unsafe {SCALE} as f32 + unsafe {CAMERA_POS.0},
-            },
-            FPoint {
-                x: (unsafe {SCALE} * GRID_SIZE as f32) + unsafe {CAMERA_POS.1},
-                y: row_index as f32 * unsafe {SCALE} + unsafe {CAMERA_POS.0},
-            }
-        ).unwrap();
+        if row_index % grid_spacing == 0 {
+            canvas.draw_line(
+                FPoint {
+                    x: unsafe {CAMERA_POS.1},
+                    y: row_index as f32 * unsafe {SCALE} + unsafe {CAMERA_POS.0},
+                },
+                FPoint {
+                    x: (unsafe {SCALE} * GRID_SIZE as f32) + unsafe {CAMERA_POS.1},
+                    y: row_index as f32 * unsafe {SCALE} + unsafe {CAMERA_POS.0},
+                }
+            ).unwrap();
+        }
     }
 
     for col_index in 0..GRID_SIZE {
-        canvas.draw_line(
-            FPoint {
-                x: col_index as f32 * unsafe {SCALE} + unsafe {CAMERA_POS.1},
-                y: unsafe {CAMERA_POS.0},
-            },
-            FPoint {
-                x: col_index as f32 * unsafe {SCALE} + unsafe {CAMERA_POS.1},
-                y: (unsafe {SCALE} * gol.grid.grid.len() as f32) + unsafe {CAMERA_POS.0},
-            }
-        ).unwrap();
+        if col_index % grid_spacing == 0 {
+            canvas.draw_line(
+                FPoint {
+                    x: col_index as f32 * unsafe {SCALE} + unsafe {CAMERA_POS.1},
+                    y: unsafe {CAMERA_POS.0},
+                },
+                FPoint {
+                    x: col_index as f32 * unsafe {SCALE} + unsafe {CAMERA_POS.1},
+                    y: (unsafe {SCALE} * gol.grid.grid.len() as f32) + unsafe {CAMERA_POS.0},
+                }
+            ).unwrap();
+        }
     }
 }

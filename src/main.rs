@@ -111,7 +111,7 @@ pub fn main() {
                 Event::KeyDown { keycode: Some(Keycode::Space), ..} => {
                     gol.pause();
                 }
-                Event::KeyDown { keycode: Some(Keycode::P), ..} => {
+                Event::KeyDown { keycode: Some(Keycode::Tab), ..} => {
                     gol.paused = false;
                     gol.update();
                     gol.paused = true;
