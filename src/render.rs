@@ -11,7 +11,7 @@ pub fn main_draw(canvas: &mut Canvas<Window>, gol: &mut GOL, frame_time: Duratio
     canvas.clear();
 
 
-    canvas.set_draw_color(Color::RGB(64, 64, 64));
+    canvas.set_draw_color(Color::RGB(32, 32, 32));
     draw_grid(canvas, &gol);
 
 
