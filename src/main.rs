@@ -1,4 +1,5 @@
 mod gol;
+mod render;
 
 use std::path::Path;
 use sdl3::event::Event;
@@ -7,61 +8,15 @@ use sdl3::pixels::Color;
 use sdl3::render::{FPoint, FRect};
 use sdl3::{ttf, Error};
 use std::time::{Duration, Instant};
-use log::{info, warn};
+use log::{debug, info, warn};
 use sdl3::mouse::MouseButton;
 use sdl3::ttf::{Font, Sdl3TtfContext};
 use crate::gol::*;
+use crate::render::main_draw;
 
 const SCALE: u32 = 16;
 const GRID_SIZE: usize = 64;
 static mut MOUSE_POS: (f32, f32) = (0.0, 0.0);
-
-fn round_down_to_multiple(n: f32, step: f32) -> f32 {
-    (n / step).floor() * step
-}
-
-fn draw_selection(canvas: &mut sdl3::render::Canvas<sdl3::video::Window>) {
-    let select_x = unsafe { round_down_to_multiple(MOUSE_POS.0, SCALE as f32) };
-    let select_y = unsafe { round_down_to_multiple(MOUSE_POS.1, SCALE as f32)};
-
-    canvas.set_draw_color(Color::RGB(255, 255, 255));
-    canvas.draw_rect(FRect {
-        x: select_x,
-        y: select_y,
-        w: SCALE as f32,
-        h: SCALE as f32,
-    }).unwrap();
-}
-
-fn draw_text(
-    font: &Font,
-    canvas: &mut sdl3::render::Canvas<sdl3::video::Window>,
-    text: &str,
-    font_size: f32,
-    color: Color,
-    x: f32,
-    y: f32,
-) {
-    let frametime_text = canvas.create_texture_from_surface(
-        font.render(
-            format!("{}", text)
-                .as_str())
-            .blended(color)
-            .unwrap()).unwrap();
-
-    draw_selection(canvas);
-
-    canvas.copy(
-        &frametime_text,
-        None,
-        FRect {
-            x,
-            y,
-            w: font_size * text.len() as f32,
-            h: font_size * 2.0
-        }
-    ).unwrap();
-}
 
 fn handle_font_error<'font>(e: Error, font_context: Sdl3TtfContext) -> Font<'font>  {
     warn!("Couldn't load font: {}", e);
@@ -113,85 +68,7 @@ pub fn main() {
     'running: loop {
         let start_time = Instant::now();
 
-        canvas.set_draw_color(Color::RGB(0, 0,0));
-        canvas.clear();
-        canvas.set_draw_color(Color::RGB(255, 255, 255));
-
-        let mut i: u32;
-        let mut j: u32;
-
-        canvas.set_draw_color(Color::RGB(64, 64, 64));
-        for row_index in 0..gol.grid.grid.len() {
-            canvas.draw_line(
-                FPoint {
-                    x: 0.0,
-                    y: row_index as f32 * SCALE as f32,
-                },
-                FPoint {
-                    x: (SCALE * GRID_SIZE as u32) as f32,
-                    y: row_index as f32 * SCALE as f32,
-                }
-            ).unwrap();
-        }
-
-        for col_index in 0..GRID_SIZE {
-            canvas.draw_line(
-                FPoint {
-                    x: col_index as f32 * SCALE as f32,
-                    y: 0.0,
-                },
-                FPoint {
-                    x: col_index as f32 * SCALE as f32,
-                    y: (SCALE * gol.grid.grid.len() as u32) as f32,
-                }
-            ).unwrap();
-        }
-
-        j = 0;
-        for row in gol.grid.grid {
-            i = 0;
-            for col in row {
-                match col {
-                    false => {
-                        i += 1;
-                        continue;
-                    }
-                    true => {
-                        canvas.set_draw_color(Color::RGB(255, 255, 255));
-                        canvas.fill_rect(FRect {
-                            x: i as f32 * SCALE as f32,
-                            y: j as f32 * SCALE as f32,
-                            w: SCALE as f32,
-                            h: SCALE as f32,
-                        }).unwrap();
-                    }
-                }
-                i += 1;
-            }
-            j += 1;
-        }
-
-        draw_text(
-            &font,
-            &mut canvas,
-            frame_time.as_millis().to_string().as_str(),
-            12.0,
-            Color::RGB(255, 255, 255),
-            10.0,
-            12.0
-        );
-
-        if gol.paused {
-            draw_text(
-                &font,
-                &mut canvas,
-                "PAUSED",
-                12.0,
-                Color::RGB(255, 0, 0),
-                10.0,
-                32.0
-            )
-        }
+        main_draw(&mut canvas, gol, frame_time, &font);
 
         for event in event_pump.poll_iter() {
             match event {
