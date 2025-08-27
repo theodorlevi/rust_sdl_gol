@@ -1,24 +1,49 @@
 mod gol;
 mod render;
 
+use std::default::Default;
 use std::path::Path;
 use sdl3::event::Event;
 use sdl3::keyboard::Keycode;
 use sdl3::pixels::Color;
-use sdl3::render::{FPoint, FRect};
 use sdl3::{ttf, Error};
 use std::time::{Duration, Instant};
-use log::{debug, info, warn};
+use log::{info, warn};
 use sdl3::mouse::MouseButton;
 use sdl3::ttf::{Font, Sdl3TtfContext};
 use crate::gol::*;
 use crate::render::main_draw;
 
-static mut SCALE: f32 = 4.0;
-const GRID_SIZE: usize = 1024;
-static mut MOUSE_POS: (f32, f32) = (0.0, 0.0);
+const INITIAL_GRID_SIZE: usize = 128; // should not be used in contexts where gol object is usable
 
-static mut CAMERA_POS: (f32, f32) = (0.0, 0.0);
+#[derive(Debug, Copy, Clone, PartialEq, Default)]
+struct Vector2 {
+    x: f32,
+    y: f32,
+}
+
+impl Vector2 {
+    fn new(x: f32, y: f32) -> Self {
+        Vector2 { x, y }
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+struct ViewState {
+    camera_pos: Vector2,
+    mouse_pos: Vector2,
+    zoom: f32,
+}
+
+impl Default for ViewState {
+    fn default() -> Self {
+        ViewState {
+            camera_pos: Default::default(),
+            mouse_pos: Default::default(),
+            zoom: 4.0,
+        }
+    }
+}
 
 fn handle_font_error<'font>(e: Error, font_context: Sdl3TtfContext) -> Font<'font>  {
     warn!("Couldn't load font: {}", e);
@@ -64,20 +89,22 @@ pub fn main() {
     let mut gol = GOL::new(grid);
     info!("initialized gol");
 
+    let mut viewstate: ViewState = Default::default();
+
     let mut frame_time: Duration = Duration::from_millis(0);
     let mut mouse1_state = false;
     let mut mouse2_state = false;
     let mut mouse3_state = false;
 
-    let mut drag_start: (f32, f32) = (0.0, 0.0);
-    let mut camera_start: (f32, f32) = (0.0, 0.0);
+    let mut drag_start: Vector2 = Vector2::new(0.0, 0.0);
+    let mut camera_start: Vector2 = Vector2::new(0.0, 0.0);
 
     let mut wasd_state = (false, false, false, false);
 
     'running: loop {
         let start_time = Instant::now();
 
-        main_draw(&mut canvas, &mut gol, frame_time, &font);
+        main_draw(&mut canvas, &mut gol, frame_time, &font, &mut viewstate);
 
         for event in event_pump.poll_iter() {
             match event {
@@ -90,8 +117,8 @@ pub fn main() {
                         mouse2_state = true;
                     } else if mouse_btn == MouseButton::Middle {
                         mouse3_state = true;
-                        drag_start = unsafe {MOUSE_POS};
-                        camera_start = unsafe {CAMERA_POS};
+                        drag_start = viewstate.mouse_pos;
+                        camera_start = viewstate.camera_pos;
                     }
                 }
 
@@ -144,20 +171,21 @@ pub fn main() {
                 }
                 /////////////////////////////////////////////////////
 
-                Event::MouseMotion { x, y, .. } => unsafe {
-                    MOUSE_POS = (x, y);
+                Event::MouseMotion { x, y, .. } => {
+                    viewstate.mouse_pos = Vector2::new(x, y);
+                    println!("MOUSE_POS: {},{}", x, y);
                 }
-                Event::MouseWheel { y, .. } => unsafe {
-                    let old_scale = SCALE;
+                Event::MouseWheel { y, .. } => {
+                    let old_scale = viewstate.zoom;
                     let mut new_scale = old_scale + y;
                     if new_scale < 1.0 { new_scale = 1.0; }
                     if (new_scale - old_scale).abs() < f32::EPSILON { continue }
 
                     let k = new_scale / old_scale;
-                    CAMERA_POS.1 = k * CAMERA_POS.1 + (1.0 - k) * MOUSE_POS.0;
-                    CAMERA_POS.0 = k * CAMERA_POS.0 + (1.0 - k) * MOUSE_POS.1;
+                    viewstate.camera_pos.x = k * viewstate.camera_pos.x + (1.0 - k) * viewstate.camera_pos.x;
+                    viewstate.camera_pos.y = k * viewstate.camera_pos.y + (1.0 - k) * viewstate.camera_pos.y;
 
-                    SCALE = new_scale;
+                    viewstate.zoom = new_scale;
                 }
                 _ => {}
             }
@@ -166,50 +194,48 @@ pub fn main() {
         gol.update();
 
         if mouse1_state {
-            unsafe {
-                let rel_x = MOUSE_POS.0 - CAMERA_POS.1;
-                let rel_y = MOUSE_POS.1 - CAMERA_POS.0;
-                if rel_x >= 0.0 && rel_y >= 0.0 {
-                    let col = (rel_x / SCALE as f32).floor() as isize;
-                    let row = (rel_y / SCALE as f32).floor() as isize;
-                    if row >= 0 && col >= 0 {
-                        gol.grid.set_cell(row as usize, col as usize, true);
-                    }
+
+            let rel_x = viewstate.mouse_pos.x - viewstate.camera_pos.x;
+            let rel_y = viewstate.mouse_pos.y - viewstate.camera_pos.y;
+            if rel_x >= 0.0 && rel_y >= 0.0 {
+                let col = (rel_x / viewstate.zoom).floor() as isize;
+                let row = (rel_y / viewstate.zoom).floor() as isize;
+                if row >= 0 && col >= 0 {
+                    gol.grid.set_cell(row as usize, col as usize, true);
                 }
             }
         } else if mouse2_state {
-            unsafe {
-                let rel_x = MOUSE_POS.0 - CAMERA_POS.1;
-                let rel_y = MOUSE_POS.1 - CAMERA_POS.0;
-                if rel_x >= 0.0 && rel_y >= 0.0 {
-                    let col = (rel_x / SCALE as f32).floor() as isize;
-                    let row = (rel_y / SCALE as f32).floor() as isize;
-                    if row >= 0 && col >= 0 {
-                        gol.grid.set_cell(row as usize, col as usize, false);
-                    }
+            let rel_x = viewstate.mouse_pos.x - viewstate.camera_pos.x;
+            let rel_y = viewstate.mouse_pos.y - viewstate.camera_pos.y;
+            if rel_x >= 0.0 && rel_y >= 0.0 {
+                let col = (rel_x / viewstate.zoom).floor() as isize;
+                let row = (rel_y / viewstate.zoom).floor() as isize;
+                if row >= 0 && col >= 0 {
+                    gol.grid.set_cell(row as usize, col as usize, false);
                 }
             }
         }
 
         if mouse3_state {
-            unsafe {
-                let mouse_delta = (MOUSE_POS.0 - drag_start.0, drag_start.1 - MOUSE_POS.1);
+            let mouse_delta = Vector2::new(
+                viewstate.mouse_pos.x - drag_start.x,
+                drag_start.y - viewstate.mouse_pos.y
+            );
 
-                CAMERA_POS = (camera_start.0 - mouse_delta.1, camera_start.1 - -mouse_delta.0);
-            }
+            viewstate.camera_pos = Vector2::new(camera_start.x - -mouse_delta.x, camera_start.y - mouse_delta.y);
         }
 
         if wasd_state.0 {
-            unsafe {CAMERA_POS.0 += frame_time.as_millis().max(4) as f32;};
+            viewstate.camera_pos.y += frame_time.as_millis().max(4) as f32;
         }
         if wasd_state.1 {
-            unsafe {CAMERA_POS.0 -= frame_time.as_millis().max(4) as f32;};
+            viewstate.camera_pos.y -= frame_time.as_millis().max(4) as f32;
         }
         if wasd_state.2 {
-            unsafe { CAMERA_POS.1 += frame_time.as_millis().max(4) as f32; };
+            viewstate.camera_pos.x += frame_time.as_millis().max(4) as f32;
         }
         if wasd_state.3 {
-            unsafe { CAMERA_POS.1 -= frame_time.as_millis().max(4) as f32; };
+            viewstate.camera_pos.x -= frame_time.as_millis().max(4) as f32;
         }
 
         let last_time = Instant::now();

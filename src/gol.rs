@@ -1,8 +1,9 @@
-use crate::GRID_SIZE;
+use crate::INITIAL_GRID_SIZE;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Grid {
-    pub grid: Box<[[bool; GRID_SIZE]; GRID_SIZE]>,
+    pub grid: Vec<Vec<bool>>,
+    pub grid_size: usize,
 }
 
 impl Grid {
@@ -10,32 +11,35 @@ impl Grid {
         Default::default()
     }
     pub fn get_cell(&self, row: usize, col: usize) -> bool {
-        if col >= GRID_SIZE || row >= GRID_SIZE {
-            return false;
+        if col >= self.grid_size || row >= self.grid_size {
+            false
         } else {
             self.grid[row][col]
         }
     }
     pub fn set_cell(&mut self, row: usize, col: usize, state: bool) {
-        if col >= GRID_SIZE || row >= GRID_SIZE {
+        if col >= self.grid_size || row >= self.grid_size {
             return;
         } else {
             self.grid[row][col] = state;
         }
     }
     pub fn clear_all(&mut self) {
-        self.grid = Box::from([[false; GRID_SIZE]; GRID_SIZE]);
+
+        self.grid = vec![vec![false; self.grid_size]; self.grid_size];
     }
-    pub fn get_grid(&mut self) -> Vec<[bool; GRID_SIZE]> {
-        let value = *self.grid;
-        Vec::from(value)
+    pub fn get_grid(&mut self) -> Vec<Vec<bool>> {
+        self.grid.clone()
     }
 }
 
 impl Default for Grid {
     fn default() -> Self {
+        let grid: Vec<Vec<bool>> = vec![vec![false; INITIAL_GRID_SIZE]; INITIAL_GRID_SIZE];
+
         Grid {
-            grid: Box::from([[false; GRID_SIZE]; GRID_SIZE]),
+            grid,
+            grid_size: INITIAL_GRID_SIZE,
         }
     }
 }
