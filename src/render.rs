@@ -1,24 +1,24 @@
 use crate::gol::{Grid, GOL};
 use crate::ViewState;
 use sdl3::pixels::Color;
-use sdl3::render::{Canvas, FPoint, FRect};
+use sdl3::render::{Canvas, FPoint, FRect, TextureCreator};
 use sdl3::ttf::Font;
-use sdl3::video::Window;
+use sdl3::video::{Window, WindowContext};
 use std::time::Duration;
 
-pub fn main_draw(canvas: &mut Canvas<Window>, gol: &mut GOL, frame_time: Duration, font: &Font, viewstate: &mut ViewState) {
+pub fn main_draw(canvas: &mut Canvas<Window>, gol: &mut GOL, frame_time: Duration, font: &Font, viewstate: &mut ViewState, texture_creator: &mut TextureCreator<WindowContext>) {
     canvas.set_draw_color(Color::RGB(0, 0, 0));
     canvas.clear();
 
     if viewstate.zoom <= 10.0 {
-        canvas.set_draw_color(Color::RGB(32, 32, 32));
+        canvas.set_draw_color(Color::RGB(64, 64, 64));
         draw_grid(canvas, &gol, viewstate);
     }
 
     draw_cells(&mut gol.grid, canvas, viewstate);
 
     if viewstate.zoom > 10.0 {
-        canvas.set_draw_color(Color::RGB(32, 32, 32));
+        canvas.set_draw_color(Color::RGB(64, 64, 64));
         draw_grid(canvas, &gol, viewstate);
     }
 
@@ -31,7 +31,8 @@ pub fn main_draw(canvas: &mut Canvas<Window>, gol: &mut GOL, frame_time: Duratio
         24.0,
         Color::RGB(255, 255, 255),
         10.0,
-        16.0
+        16.0,
+        texture_creator,
     );
 
     draw_text(
@@ -41,7 +42,8 @@ pub fn main_draw(canvas: &mut Canvas<Window>, gol: &mut GOL, frame_time: Duratio
         24.0,
         Color::RGB(255, 255, 255),
         10.0,
-        48.0
+        48.0,
+        texture_creator,
     );
 
     if gol.paused {
@@ -52,7 +54,8 @@ pub fn main_draw(canvas: &mut Canvas<Window>, gol: &mut GOL, frame_time: Duratio
             24.0,
             Color::RGB(255, 0, 0),
             10.0,
-            32.0
+            32.0,
+            texture_creator
         )
     }
 }
@@ -68,13 +71,16 @@ fn draw_text(
     font_size: f32,
     color: Color,
     x: f32,
-    y: f32, ) {
-    let text_texture = canvas.create_texture_from_surface(
+    y: f32, 
+    texture_creator: &mut TextureCreator<WindowContext>,) {
+    
+    let text_texture = texture_creator.create_texture_from_surface(
         font.render(
             format!("{}", text)
                 .as_str())
             .blended(color)
-            .unwrap()).unwrap();
+            .unwrap()
+        ).unwrap();
 
     canvas.copy(
         &text_texture,

@@ -14,7 +14,7 @@ use sdl3::ttf::{Font, Sdl3TtfContext};
 use crate::gol::*;
 use crate::render::main_draw;
 
-const INITIAL_GRID_SIZE: usize = 128; // should not be used in contexts where gol object is usable
+const INITIAL_GRID_SIZE: usize = 512; // should not be used in contexts where gol object is usable
 
 #[derive(Debug, Copy, Clone, PartialEq, Default)]
 struct Vector2 {
@@ -78,6 +78,8 @@ pub fn main() {
     );
     info!("initialized font");
 
+    let mut texture_creator = canvas.texture_creator();
+
     canvas.set_draw_color(Color::RGB(0, 255, 255));
     canvas.clear();
     canvas.present();
@@ -104,7 +106,7 @@ pub fn main() {
     'running: loop {
         let start_time = Instant::now();
 
-        main_draw(&mut canvas, &mut gol, frame_time, &font, &mut viewstate);
+        main_draw(&mut canvas, &mut gol, frame_time, &font, &mut viewstate, &mut texture_creator);
 
         for event in event_pump.poll_iter() {
             match event {
@@ -173,7 +175,6 @@ pub fn main() {
 
                 Event::MouseMotion { x, y, .. } => {
                     viewstate.mouse_pos = Vector2::new(x, y);
-                    println!("MOUSE_POS: {},{}", x, y);
                 }
                 Event::MouseWheel { y, .. } => {
                     let old_scale = viewstate.zoom;
@@ -182,8 +183,8 @@ pub fn main() {
                     if (new_scale - old_scale).abs() < f32::EPSILON { continue }
 
                     let k = new_scale / old_scale;
-                    viewstate.camera_pos.x = k * viewstate.camera_pos.x + (1.0 - k) * viewstate.camera_pos.x;
-                    viewstate.camera_pos.y = k * viewstate.camera_pos.y + (1.0 - k) * viewstate.camera_pos.y;
+                    viewstate.camera_pos.x = k * viewstate.camera_pos.x + (1.0 - k) * viewstate.mouse_pos.x;
+                    viewstate.camera_pos.y = k * viewstate.camera_pos.y + (1.0 - k) * viewstate.mouse_pos.y;
 
                     viewstate.zoom = new_scale;
                 }
@@ -242,8 +243,8 @@ pub fn main() {
         frame_time = last_time - start_time;
         canvas.present();
 
-        if gol.paused {
-            std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 144));
-        }
+
+        std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 144));
+
     }
 }
