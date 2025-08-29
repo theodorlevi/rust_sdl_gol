@@ -119,7 +119,7 @@ impl GOL {
         for ((x, y), n) in counts.into_iter() {
             let is_alive = alive.contains(&(x, y));
             let next_alive = match (is_alive, n) {
-                (true, 2) | (_, 3) => true, // survive on 2 or 3; birth on 3
+                (true, 2) | (_, 3) => true,
                 _ => false,
             };
             if next_alive {
@@ -128,21 +128,6 @@ impl GOL {
         }
 
         self.grid.grid = next_cells;
-    }
-
-    fn get_neighbours(&self, x: isize, y: isize) -> u8 {
-        let mut neighbours: u8 = 0;
-        
-        if self.grid.get_cell(x - 1, y - 1).0 { neighbours = neighbours.saturating_add(1); }
-        if self.grid.get_cell(x - 1, y    ).0 { neighbours = neighbours.saturating_add(1); }
-        if self.grid.get_cell(x - 1, y + 1).0 { neighbours = neighbours.saturating_add(1); }
-        if self.grid.get_cell(x,     y - 1).0 { neighbours = neighbours.saturating_add(1); }
-        if self.grid.get_cell(x,     y + 1).0 { neighbours = neighbours.saturating_add(1); }
-        if self.grid.get_cell(x + 1, y - 1).0 { neighbours = neighbours.saturating_add(1); }
-        if self.grid.get_cell(x + 1, y    ).0 { neighbours = neighbours.saturating_add(1); }
-        if self.grid.get_cell(x + 1, y + 1).0 { neighbours = neighbours.saturating_add(1); }
-
-        neighbours
     }
 
     pub fn pause(&mut self) {

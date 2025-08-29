@@ -5,8 +5,7 @@ use sdl3::render::{Canvas, FRect, TextureCreator};
 use sdl3::ttf::Font;
 use sdl3::video::{Window, WindowContext};
 use std::time::Duration;
-
-pub fn main_draw(canvas: &mut Canvas<Window>, gol: &mut GOL, frame_time: Duration, font: &Font, viewstate: &mut ViewState, texture_creator: &mut TextureCreator<WindowContext>) {
+pub fn main_draw(canvas: &mut Canvas<Window>, gol: &mut GOL, frame_time: Duration, font: &Font<'_>, viewstate: &mut ViewState, texture_creator: &mut TextureCreator<WindowContext>) {
     canvas.set_draw_color(Color::RGB(0, 0, 0));
     canvas.clear();
 
@@ -28,7 +27,7 @@ pub fn main_draw(canvas: &mut Canvas<Window>, gol: &mut GOL, frame_time: Duratio
     draw_text(
         &font,
         canvas,
-        format!("{}x zoom", viewstate.zoom).as_str(),
+        format!("{:.3}x zoom", viewstate.zoom).as_str(),
         24.0,
         Color::RGB(255, 255, 255),
         10.0,
