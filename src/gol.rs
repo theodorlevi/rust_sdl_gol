@@ -1,45 +1,70 @@
-use crate::INITIAL_GRID_SIZE;
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Vec2Isize {
+    pub(crate) x: isize,
+    pub(crate) y: isize,
+}
+
+impl Vec2Isize {
+    fn new(x: isize, y: isize) -> Self {
+        Self { x, y }
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Grid {
-    pub grid: Vec<Vec<bool>>,
-    pub grid_size: usize,
+    pub grid: Vec<Vec2Isize>,
+    pub grid_max: Vec2Isize,
+    pub grid_min: Vec2Isize,
 }
 
 impl Grid {
     pub fn new() -> Grid {
         Default::default()
     }
-    pub fn get_cell(&self, row: usize, col: usize) -> bool {
-        if col >= self.grid_size || row >= self.grid_size {
-            false
-        } else {
-            self.grid[row][col]
+    pub fn get_cell(&self, x: isize, y: isize) -> (bool, usize) {
+        let mut i: usize = 0;
+        for cell in &self.grid {
+            if *cell == Vec2Isize::new(x, y) {
+                return (true, i);
+            }
+            i += 1;
         }
+        (false, i)
     }
-    pub fn set_cell(&mut self, row: usize, col: usize, state: bool) {
-        if col >= self.grid_size || row >= self.grid_size {
-            return;
+    pub fn set_cell(&mut self, x: isize, y: isize, state: bool) {
+
+        let gotten_cell = self.get_cell(x, y);
+
+        if gotten_cell.0 {
+            if state {
+                return;
+            } else {
+                self.grid.remove(gotten_cell.1);
+            }
         } else {
-            self.grid[row][col] = state;
+            if state {
+                self.grid.push(Vec2Isize::new(x, y));
+            } else {
+                return;
+            }
         }
     }
     pub fn clear_all(&mut self) {
-
-        self.grid = vec![vec![false; self.grid_size]; self.grid_size];
+        self.grid = Vec::new();
     }
-    pub fn get_grid(&mut self) -> Vec<Vec<bool>> {
+    pub fn get_grid(&mut self) -> Vec<Vec2Isize> {
         self.grid.clone()
     }
 }
 
 impl Default for Grid {
     fn default() -> Self {
-        let grid: Vec<Vec<bool>> = vec![vec![false; INITIAL_GRID_SIZE]; INITIAL_GRID_SIZE];
+        let grid: Vec<Vec2Isize> = vec![];
 
         Grid {
             grid,
-            grid_size: INITIAL_GRID_SIZE,
+            grid_min: Vec2Isize::new(0, 0),
+            grid_max: Vec2Isize::new(0, 0),
         }
     }
 }
@@ -61,61 +86,61 @@ impl GOL {
     pub fn update(&mut self) {
         if self.paused { return; }
 
-        let mut row_i = 0;
-        let mut col_i = 0;
-
-        let self_copy = self.clone();
-
-        for row in self.grid.get_grid() {
-            for col in row {
-                let neighbours = self_copy.get_neighbours(row_i, col_i);
-
-                if col {
-                    if neighbours.len() <= 1 || neighbours.len() >= 4 {
-                        self.grid.set_cell(row_i, col_i, false);
-                    }
-                } else {
-                    if neighbours.len() == 3 {
-                        self.grid.set_cell(row_i, col_i, true);
-                    }
-                }
-                col_i += 1;
-            }
-            col_i = 0;
-            row_i += 1;
+        let current = self.grid.get_grid();
+        if current.is_empty() {
+            return;
         }
+
+        let mut alive: std::collections::HashSet<(isize, isize)> = std::collections::HashSet::with_capacity(current.len());
+        for c in &current {
+            alive.insert((c.x, c.y));
+        }
+
+        let mut counts: std::collections::HashMap<(isize, isize), u8> = std::collections::HashMap::with_capacity(alive.len() * 4);
+        for (x, y) in &alive {
+            let (x, y) = (*x, *y);
+            let mut inc = |nx: isize, ny: isize| {
+                counts
+                    .entry((nx, ny))
+                    .and_modify(|c| { if *c < 8 { *c += 1; } })
+                    .or_insert(1);
+            };
+            inc(x - 1, y - 1);
+            inc(x - 1, y    );
+            inc(x - 1, y + 1);
+            inc(x,     y - 1);
+            inc(x,     y + 1);
+            inc(x + 1, y - 1);
+            inc(x + 1, y    );
+            inc(x + 1, y + 1);
+        }
+
+        let mut next_cells: Vec<Vec2Isize> = Vec::with_capacity(current.len());
+        for ((x, y), n) in counts.into_iter() {
+            let is_alive = alive.contains(&(x, y));
+            let next_alive = match (is_alive, n) {
+                (true, 2) | (_, 3) => true, // survive on 2 or 3; birth on 3
+                _ => false,
+            };
+            if next_alive {
+                next_cells.push(Vec2Isize::new(x, y));
+            }
+        }
+
+        self.grid.grid = next_cells;
     }
 
-    fn get_neighbours(&self, row: usize, col: usize) -> Vec<(usize, usize)> {
-        let mut neighbours = Vec::new();
-
-        let total_rows = self.grid.grid.len() as isize;
-        let total_cols = self.grid.grid[0].len() as isize;
-
-        let current_row_signed = row as isize;
-        let current_col_signed = col as isize;
-
-        for row_offset in -1..=1 {
-            for col_offset in -1..=1 {
-                if row_offset == 0 && col_offset == 0 { continue; }
-
-                let mut neighbor_row_signed = current_row_signed + row_offset;
-                let mut neighbor_col_signed = current_col_signed + col_offset;
-
-                if neighbor_row_signed < 0 { neighbor_row_signed += total_rows; }
-                if neighbor_row_signed >= total_rows { neighbor_row_signed -= total_rows; }
-
-                if neighbor_col_signed < 0 { neighbor_col_signed += total_cols; }
-                if neighbor_col_signed >= total_cols { neighbor_col_signed -= total_cols; }
-
-                let neighbor_row = neighbor_row_signed as usize;
-                let neighbor_col = neighbor_col_signed as usize;
-
-                if self.grid.get_cell(neighbor_row, neighbor_col) {
-                    neighbours.push((neighbor_row, neighbor_col));
-                }
-            }
-        }
+    fn get_neighbours(&self, x: isize, y: isize) -> u8 {
+        let mut neighbours: u8 = 0;
+        
+        if self.grid.get_cell(x - 1, y - 1).0 { neighbours = neighbours.saturating_add(1); }
+        if self.grid.get_cell(x - 1, y    ).0 { neighbours = neighbours.saturating_add(1); }
+        if self.grid.get_cell(x - 1, y + 1).0 { neighbours = neighbours.saturating_add(1); }
+        if self.grid.get_cell(x,     y - 1).0 { neighbours = neighbours.saturating_add(1); }
+        if self.grid.get_cell(x,     y + 1).0 { neighbours = neighbours.saturating_add(1); }
+        if self.grid.get_cell(x + 1, y - 1).0 { neighbours = neighbours.saturating_add(1); }
+        if self.grid.get_cell(x + 1, y    ).0 { neighbours = neighbours.saturating_add(1); }
+        if self.grid.get_cell(x + 1, y + 1).0 { neighbours = neighbours.saturating_add(1); }
 
         neighbours
     }

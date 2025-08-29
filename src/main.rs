@@ -14,8 +14,6 @@ use sdl3::ttf::{Font, Sdl3TtfContext};
 use crate::gol::*;
 use crate::render::main_draw;
 
-const INITIAL_GRID_SIZE: usize = 512; // should not be used in contexts where gol object is usable
-
 #[derive(Debug, Copy, Clone, PartialEq, Default)]
 struct Vector2 {
     x: f32,
@@ -198,23 +196,16 @@ pub fn main() {
 
             let rel_x = viewstate.mouse_pos.x - viewstate.camera_pos.x;
             let rel_y = viewstate.mouse_pos.y - viewstate.camera_pos.y;
-            if rel_x >= 0.0 && rel_y >= 0.0 {
-                let col = (rel_x / viewstate.zoom).floor() as isize;
-                let row = (rel_y / viewstate.zoom).floor() as isize;
-                if row >= 0 && col >= 0 {
-                    gol.grid.set_cell(row as usize, col as usize, true);
-                }
-            }
+            let col = (rel_x / viewstate.zoom).floor() as isize;
+            let row = (rel_y / viewstate.zoom).floor() as isize;
+            gol.grid.set_cell(row, col, true);
+
         } else if mouse2_state {
             let rel_x = viewstate.mouse_pos.x - viewstate.camera_pos.x;
             let rel_y = viewstate.mouse_pos.y - viewstate.camera_pos.y;
-            if rel_x >= 0.0 && rel_y >= 0.0 {
-                let col = (rel_x / viewstate.zoom).floor() as isize;
-                let row = (rel_y / viewstate.zoom).floor() as isize;
-                if row >= 0 && col >= 0 {
-                    gol.grid.set_cell(row as usize, col as usize, false);
-                }
-            }
+            let col = (rel_x / viewstate.zoom).floor() as isize;
+            let row = (rel_y / viewstate.zoom).floor() as isize;
+            gol.grid.set_cell(row, col, false);
         }
 
         if mouse3_state {
