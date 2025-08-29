@@ -1,4 +1,9 @@
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+use rayon::iter::ParallelIterator;
+use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator};
+use std::collections::HashSet;
+
+#[derive(Debug, Clone, PartialEq, Eq, Copy)]
+#[derive(Hash)]
 pub struct Vec2Isize {
     pub(crate) x: isize,
     pub(crate) y: isize,
@@ -10,66 +15,57 @@ impl Vec2Isize {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone)]
 pub struct Grid {
-    pub grid: Vec<Vec2Isize>,
-    pub grid_max: Vec2Isize,
-    pub grid_min: Vec2Isize,
+    pub grid: HashSet<Vec2Isize>,
 }
 
 impl Grid {
     pub fn new() -> Grid {
         Default::default()
     }
-    pub fn get_cell(&self, x: isize, y: isize) -> (bool, usize) {
-        let mut i: usize = 0;
-        for cell in &self.grid {
-            if *cell == Vec2Isize::new(x, y) {
-                return (true, i);
-            }
-            i += 1;
-        }
-        (false, i)
+    pub fn get_cell(&self, x: isize, y: isize) -> bool {
+        self.grid.contains(&Vec2Isize::new(x, y))
     }
+
     pub fn set_cell(&mut self, x: isize, y: isize, state: bool) {
 
         let gotten_cell = self.get_cell(x, y);
 
-        if gotten_cell.0 {
+        if gotten_cell {
             if state {
                 return;
             } else {
-                self.grid.remove(gotten_cell.1);
+                self.grid.remove(&Vec2Isize::new(x, y));
             }
         } else {
             if state {
-                self.grid.push(Vec2Isize::new(x, y));
+                self.grid.insert(Vec2Isize::new(x, y));
             } else {
                 return;
             }
         }
     }
+
     pub fn clear_all(&mut self) {
-        self.grid = Vec::new();
+        self.grid = HashSet::new();
     }
-    pub fn get_grid(&mut self) -> Vec<Vec2Isize> {
+    pub fn get_grid(&mut self) -> HashSet<Vec2Isize> {
         self.grid.clone()
     }
 }
 
 impl Default for Grid {
     fn default() -> Self {
-        let grid: Vec<Vec2Isize> = vec![];
+        let grid: HashSet<Vec2Isize> = HashSet::new();
 
         Grid {
             grid,
-            grid_min: Vec2Isize::new(0, 0),
-            grid_max: Vec2Isize::new(0, 0),
         }
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct GOL {
     pub grid: Grid,
     pub paused: bool,
@@ -85,47 +81,47 @@ impl GOL {
 
     pub fn update(&mut self) {
         if self.paused { return; }
+        let current = &self.grid.grid;
+        if current.is_empty() { return; }
 
-        let current = self.grid.get_grid();
-        if current.is_empty() {
-            return;
-        }
+        let alive: HashSet<Vec2Isize> = current.par_iter()
+            .map(|c| Vec2Isize::new(c.x, c.y))
+            .collect();
 
-        let mut alive: std::collections::HashSet<(isize, isize)> = std::collections::HashSet::with_capacity(current.len());
-        for c in &current {
-            alive.insert((c.x, c.y));
-        }
+        let all_candidates: HashSet<Vec2Isize> = alive
+            .par_iter()
+            .flat_map(|candidate| {
+                let (x, y) = (candidate.x, candidate.y);
+                [
+                    Vec2Isize::new(x - 1, y - 1), Vec2Isize::new(x - 1, y), Vec2Isize::new(x - 1, y + 1),
+                    Vec2Isize::new(x, y - 1), Vec2Isize::new(x, y), Vec2Isize::new(x, y + 1),
+                    Vec2Isize::new(x + 1, y - 1), Vec2Isize::new(x + 1, y), Vec2Isize::new(x + 1, y + 1),
+                ].into_par_iter()
+            })
+            .collect();
 
-        let mut counts: std::collections::HashMap<(isize, isize), u8> = std::collections::HashMap::with_capacity(alive.len() * 4);
-        for (x, y) in &alive {
-            let (x, y) = (*x, *y);
-            let mut inc = |nx: isize, ny: isize| {
-                counts
-                    .entry((nx, ny))
-                    .and_modify(|c| { if *c < 8 { *c += 1; } })
-                    .or_insert(1);
-            };
-            inc(x - 1, y - 1);
-            inc(x - 1, y    );
-            inc(x - 1, y + 1);
-            inc(x,     y - 1);
-            inc(x,     y + 1);
-            inc(x + 1, y - 1);
-            inc(x + 1, y    );
-            inc(x + 1, y + 1);
-        }
+        let next_cells: HashSet<Vec2Isize> = all_candidates
+            .par_iter()
+            .filter_map(|next_cell| {
+                let (x, y) = (next_cell.x, next_cell.y);
+                let mut count = 0u8;
 
-        let mut next_cells: Vec<Vec2Isize> = Vec::with_capacity(current.len());
-        for ((x, y), n) in counts.into_iter() {
-            let is_alive = alive.contains(&(x, y));
-            let next_alive = match (is_alive, n) {
-                (true, 2) | (_, 3) => true,
-                _ => false,
-            };
-            if next_alive {
-                next_cells.push(Vec2Isize::new(x, y));
-            }
-        }
+                if alive.contains(&Vec2Isize::new(x - 1, y - 1)) { count += 1; }
+                if alive.contains(&Vec2Isize::new(x - 1, y)) { count += 1; }
+                if alive.contains(&Vec2Isize::new(x - 1, y + 1)) { count += 1; }
+                if alive.contains(&Vec2Isize::new(x, y - 1)) { count += 1; }
+                if alive.contains(&Vec2Isize::new(x, y + 1)) { count += 1; }
+                if alive.contains(&Vec2Isize::new(x + 1, y - 1)) { count += 1; }
+                if alive.contains(&Vec2Isize::new(x + 1, y)) { count += 1; }
+                if alive.contains(&Vec2Isize::new(x + 1, y + 1)) { count += 1; }
+
+                let is_alive = alive.contains(&Vec2Isize::new(x, y));
+                match (is_alive, count) {
+                    (true, 2) | (_, 3) => Some(Vec2Isize::new(x, y)),
+                    _ => None,
+                }
+            })
+            .collect();
 
         self.grid.grid = next_cells;
     }

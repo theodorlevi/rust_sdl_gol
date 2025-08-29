@@ -5,7 +5,7 @@ use sdl3::render::{Canvas, FRect, TextureCreator};
 use sdl3::ttf::Font;
 use sdl3::video::{Window, WindowContext};
 use std::time::Duration;
-pub fn main_draw(canvas: &mut Canvas<Window>, gol: &mut GOL, frame_time: Duration, font: &Font<'_>, viewstate: &mut ViewState, texture_creator: &mut TextureCreator<WindowContext>) {
+pub fn main_draw(canvas: &mut Canvas<Window>, gol: &mut GOL, frame_time: Duration, font: &Font<'_>, viewstate: &mut ViewState, texture_creator: &mut TextureCreator<WindowContext>, speed: usize) {
     canvas.set_draw_color(Color::RGB(0, 0, 0));
     canvas.clear();
 
@@ -23,18 +23,6 @@ pub fn main_draw(canvas: &mut Canvas<Window>, gol: &mut GOL, frame_time: Duratio
         16.0,
         texture_creator,
     );
-
-    draw_text(
-        &font,
-        canvas,
-        format!("{:.3}x zoom", viewstate.zoom).as_str(),
-        24.0,
-        Color::RGB(255, 255, 255),
-        10.0,
-        48.0,
-        texture_creator,
-    );
-
     if gol.paused {
         draw_text(
             &font,
@@ -47,6 +35,26 @@ pub fn main_draw(canvas: &mut Canvas<Window>, gol: &mut GOL, frame_time: Duratio
             texture_creator
         )
     }
+
+    draw_text(
+        &font,
+        canvas,
+        format!("{:.3}x zoom", viewstate.zoom).as_str(),
+        24.0,
+        Color::RGB(255, 255, 255),
+        10.0,
+        48.0,
+        texture_creator,
+    );
+
+    draw_text(
+        &font,
+        canvas,
+        format!("{}/ speed", speed).as_str(),
+        24.0, Color::RGB(255, 255, 255),
+        10.0,
+        64.0,
+        texture_creator);
 }
 
 fn round_down_to_multiple(n: f32, step: f32) -> f32 {
@@ -120,7 +128,7 @@ fn draw_selection(canvas: &mut Canvas<Window>, grid: &Grid, viewstate: &mut View
     let x = (select_world_y / scale) as isize;
     let y = (select_world_x / scale) as isize;
 
-    if grid.get_cell(x, y).0 {
+    if grid.get_cell(x, y) {
         canvas.set_draw_color(Color::RGB(255, 0, 0));
     } else {
         canvas.set_draw_color(Color::RGB(0, 255, 0));

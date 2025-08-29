@@ -8,10 +8,13 @@ use sdl3::keyboard::Keycode;
 use sdl3::pixels::Color;
 use sdl3::{ttf, Error};
 use std::time::{Duration, Instant};
+use std::sync::mpsc::{self, TryRecvError};
+use std::thread;
 use log::{info, warn};
 use sdl3::mouse::MouseButton;
 use sdl3::ttf::{Font, Sdl3TtfContext};
 use tokio::task::LocalSet;
+use tokio::time::sleep;
 use crate::gol::*;
 use crate::render::main_draw;
 
@@ -106,25 +109,34 @@ pub async fn main() {
 
         let mut wasd_state = (false, false, false, false);
 
-        let mut current_render: Option<tokio::task::JoinHandle<()>> = None;
+        let mut speed = 14usize;
+        let mut frame_counter = 0usize;
+
+        let (tx, rx) = mpsc::channel();
+        let timer_thread = thread::spawn(move || {
+            loop {
+                thread::sleep(Duration::from_micros(6944));
+                if tx.send(()).is_err() {
+                    break;
+                }
+            }
+        });
         'running: loop {
+            if frame_counter >= speed {
+                frame_counter = 0;
+            }
+
             let start_time = Instant::now();
 
-            if let Some(handle) = current_render.take() {
-                if handle.is_finished() {
-                    handle.await.unwrap();
-                    main_draw(&mut canvas, &mut gol, frame_time, &font, &mut viewstate, &mut texture_creator);
+            match rx.try_recv() {
+                Ok(_) => {
+                    main_draw(&mut canvas, &mut gol, frame_time, &font, &mut viewstate, &mut texture_creator, speed);
                     canvas.present();
-                    current_render = Some(tokio::spawn(async move {
-                        tokio::time::sleep(Duration::from_micros(6944)).await;
-                    }));
-                } else {
-                    current_render = Some(handle);
                 }
-            } else {
-                current_render = Some(tokio::spawn(async move {
-                    tokio::time::sleep(Duration::from_micros(6944)).await;
-                }));
+                Err(TryRecvError::Empty) => {}
+                Err(TryRecvError::Disconnected) => {
+                    break 'running;
+                }
             }
 
             for event in event_pump.poll_iter() {
@@ -190,6 +202,19 @@ pub async fn main() {
                         wasd_state.3 = false;
                     }
 
+                    Event::KeyDown { keycode: Some(Keycode::Down), ..} => {
+                        speed += 1;
+                    }
+                    Event::KeyDown { keycode: Some(Keycode::Up), ..} => {
+                        let newspeed = speed as isize - 1;
+
+                        if newspeed < 1 {
+                            continue;
+                        }
+
+                        speed = newspeed as usize;
+                    }
+
                     Event::MouseMotion { x, y, .. } => {
                         viewstate.mouse_pos = Vector2::new(x, y);
                     }
@@ -221,7 +246,13 @@ pub async fn main() {
                 }
             }
 
-            gol.update();
+            if !gol.paused {
+                if frame_counter % speed == 0{
+                    gol.update();
+                } else {
+                    sleep(Duration::from_millis(1)).await;
+                }
+            }
 
             if mouse1_state {
                 let rel_x = viewstate.mouse_pos.x - viewstate.camera_pos.x;
@@ -236,7 +267,6 @@ pub async fn main() {
                 let row = (rel_y / viewstate.zoom).floor() as isize;
                 gol.grid.set_cell(row, col, false);
             }
-
             if mouse3_state {
                 let mouse_delta = Vector2::new(
                     viewstate.mouse_pos.x - drag_start.x,
@@ -245,7 +275,7 @@ pub async fn main() {
 
                 viewstate.camera_pos = Vector2::new(camera_start.x - -mouse_delta.x, camera_start.y - mouse_delta.y);
             }
-            let wasd_speed = frame_time.as_millis().max(4).min(16) as f32 / 100.0;
+            let wasd_speed = frame_time.as_millis().max(4) as f32 / 1000.0;
             if wasd_state.0 {
                 viewstate.camera_pos.y += wasd_speed;
             }
@@ -261,6 +291,10 @@ pub async fn main() {
 
             let last_time = Instant::now();
             frame_time = last_time - start_time;
+
+            frame_counter += 1;
         }
+        drop(rx);
+        let _ = timer_thread.join();
     }).await;
 }
