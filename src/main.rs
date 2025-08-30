@@ -80,19 +80,20 @@ fn main() {
 
     let mut speed = 14usize;
 
-    let (job_tx, job_rx) = mpsc::channel::<Grid>();
-    let (res_tx, res_rx) = mpsc::channel::<Grid>();
+    let (next_grid_request_tx, next_grid_request_rx) = mpsc::channel::<Grid>();
+    let (next_grid_result_tx, next_grid_result_rx) = mpsc::channel::<Grid>();
 
     thread::spawn(move || {
-        while let Ok(snapshot) = job_rx.recv() {
-            let next = GOL::update_from(&snapshot);
+        while let Ok(current_grid_snapshot) = next_grid_request_rx.recv() {
+            let next = GOL::update_from(&current_grid_snapshot);
             thread::sleep(Duration::from_millis(speed as u64));
-            if res_tx.send(next).is_err() {
+            if next_grid_result_tx.send(next).is_err() {
                 break;
             }
         }
     });
-    let mut update_in_flight = false;
+    
+    let mut update_in_progress = false;
 
     'running: loop {
         let start_time = Instant::now();
@@ -290,21 +291,21 @@ fn main() {
             viewstate.camera_pos.x -= wasd_speed;
         }
 
-        if !gol.paused && !update_in_flight {
-            let snapshot = gol.grid.clone();
-            if job_tx.send(snapshot).is_ok() {
-                update_in_flight = true;
+        if !gol.paused && !update_in_progress {
+            let current_grid_snapshot = gol.grid.clone();
+            if next_grid_request_tx.send(current_grid_snapshot).is_ok() {
+                update_in_progress = true;
             }
         }
 
-        match res_rx.try_recv() {
+        match next_grid_result_rx.try_recv() {
             Ok(next_grid) => {
                 gol.grid = next_grid;
-                update_in_flight = false;
+                update_in_progress = false;
             }
             Err(TryRecvError::Empty) => {}
             Err(TryRecvError::Disconnected) => {
-                update_in_flight = false;
+                update_in_progress = false;
             }
         }
 
