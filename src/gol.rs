@@ -2,8 +2,7 @@ use rayon::iter::ParallelIterator;
 use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator};
 use std::collections::HashSet;
 
-#[derive(Debug, Clone, PartialEq, Eq, Copy)]
-#[derive(Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Copy, Hash)]
 pub struct Vec2Isize {
     pub(crate) x: isize,
     pub(crate) y: isize,
@@ -79,10 +78,16 @@ impl GOL {
         }
     }
 
-    pub fn update(&mut self) {
-        if self.paused { return; }
-        let current = &self.grid.grid;
-        if current.is_empty() { return; }
+    pub(crate) fn update_from(grid: &Grid) -> Grid {
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(rayon::current_num_threads())
+            .build()
+            .ok();
+
+        let current = &grid.grid;
+        if current.is_empty() {
+            return Grid { grid: HashSet::new() };
+        }
 
         let alive: HashSet<Vec2Isize> = current.par_iter()
             .map(|c| Vec2Isize::new(c.x, c.y))
@@ -123,7 +128,7 @@ impl GOL {
             })
             .collect();
 
-        self.grid.grid = next_cells;
+        Grid { grid: next_cells }
     }
 
     pub fn pause(&mut self) {

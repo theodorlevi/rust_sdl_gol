@@ -1,60 +1,65 @@
-use crate::gol::{Grid, GOL};
-use crate::ViewState;
+use crate::gol::Grid;
+use crate::types::{RenderCtx, ViewState};
 use sdl3::pixels::Color;
-use sdl3::render::{Canvas, FRect, TextureCreator};
+use sdl3::render::{Canvas, FPoint, FRect, TextureCreator};
 use sdl3::ttf::Font;
 use sdl3::video::{Window, WindowContext};
-use std::time::Duration;
-pub fn main_draw(canvas: &mut Canvas<Window>, gol: &mut GOL, frame_time: Duration, font: &Font<'_>, viewstate: &mut ViewState, texture_creator: &mut TextureCreator<WindowContext>, speed: usize) {
-    canvas.set_draw_color(Color::RGB(0, 0, 0));
-    canvas.clear();
 
-    draw_cells(&mut gol.grid, canvas, viewstate);
 
-    draw_selection(canvas, &gol.grid, viewstate);
+pub fn draw_frame(render_ctx: &mut RenderCtx) {
+    render_ctx.canvas.set_draw_color(Color::RGB(0, 0, 0));
+    render_ctx.canvas.clear();
+
+    draw_cells(&mut render_ctx.gol.grid, render_ctx.canvas, render_ctx.viewstate);
+
+    draw_selection(render_ctx.canvas, &render_ctx.gol.grid, render_ctx.viewstate);
 
     draw_text(
-        &font,
-        canvas,
-        frame_time.as_millis().to_string().as_str(),
+        render_ctx.font,
+        render_ctx.canvas,
+        render_ctx.frame_time.as_millis().to_string().as_str(),
         24.0,
         Color::RGB(255, 255, 255),
         10.0,
         16.0,
-        texture_creator,
+        render_ctx.texture_creator,
     );
-    if gol.paused {
+    if render_ctx.gol.paused {
         draw_text(
-            &font,
-            canvas,
+            render_ctx.font,
+            render_ctx.canvas,
             "PAUSED",
             24.0,
             Color::RGB(255, 0, 0),
             10.0,
             32.0,
-            texture_creator
+            render_ctx.texture_creator,
         )
     }
 
     draw_text(
-        &font,
-        canvas,
-        format!("{:.3}x zoom", viewstate.zoom).as_str(),
+        render_ctx.font,
+        render_ctx.canvas,
+        format!("{:.3}x zoom", render_ctx.viewstate.zoom).as_str(),
         24.0,
         Color::RGB(255, 255, 255),
         10.0,
         48.0,
-        texture_creator,
+        render_ctx.texture_creator,
     );
 
     draw_text(
-        &font,
-        canvas,
-        format!("{}/ speed", speed).as_str(),
-        24.0, Color::RGB(255, 255, 255),
+        render_ctx.font,
+        render_ctx.canvas,
+        format!("{}/ speed", render_ctx.speed).as_str(),
+        24.0,
+        Color::RGB(255, 255, 255),
         10.0,
         64.0,
-        texture_creator);
+        render_ctx.texture_creator,
+    );
+
+    render_ctx.canvas.present();
 }
 
 fn round_down_to_multiple(n: f32, step: f32) -> f32 {
@@ -68,55 +73,61 @@ fn draw_text(
     font_size: f32,
     color: Color,
     x: f32,
-    y: f32, 
-    texture_creator: &mut TextureCreator<WindowContext>,) {
-    
-    let text_texture = texture_creator.create_texture_from_surface(
-        font.render(
-            format!("{}", text)
-                .as_str())
-            .blended(color)
-            .unwrap()
-        ).unwrap();
+    y: f32,
+    texture_creator: &mut TextureCreator<WindowContext>,
+) {
+    let text_texture = texture_creator
+        .create_texture_from_surface(
+            font.render(format!("{}", text).as_str())
+                .blended(color)
+                .unwrap(),
+        )
+        .unwrap();
 
-    canvas.copy(
-        &text_texture,
-        None,
-        FRect {
-            x,
-            y,
-            w: (font_size / 2.0) * text.len() as f32,
-            h: font_size
-        }
-    ).unwrap();
+    canvas
+        .copy(
+            &text_texture,
+            None,
+            FRect {
+                x,
+                y,
+                w: (font_size / 2.0) * text.len() as f32,
+                h: font_size,
+            },
+        )
+        .unwrap();
 }
 
-fn draw_cells(grid: &mut Grid, canvas: &mut Canvas<Window>, viewstate: &mut ViewState) {
+fn draw_cells(grid: &mut Grid, canvas: &mut Canvas<Window>, viewstate: ViewState) {
     canvas.set_draw_color(Color::RGB(255, 255, 255));
     for cell in grid.get_grid() {
-        canvas.fill_rect(
-            FRect {
-                x: cell.y as f32 * viewstate.zoom + viewstate.camera_pos.x,
-                y: cell.x as f32 * viewstate.zoom + viewstate.camera_pos.y,
-                w: viewstate.zoom,
-                h: viewstate.zoom,
-            }
-        ).unwrap();
+        if viewstate.zoom <= 1.0 {
+            canvas
+                .draw_point(FPoint {
+                    x: cell.y as f32 * viewstate.zoom + viewstate.camera_pos.x,
+                    y: cell.x as f32 * viewstate.zoom + viewstate.camera_pos.y,
+                })
+                .unwrap();
+        } else {
+            canvas
+                .fill_rect(FRect {
+                    x: cell.y as f32 * viewstate.zoom + viewstate.camera_pos.x,
+                    y: cell.x as f32 * viewstate.zoom + viewstate.camera_pos.y,
+                    w: viewstate.zoom,
+                    h: viewstate.zoom,
+                })
+                .unwrap();
+        }
     }
 }
 
-fn draw_selection(canvas: &mut Canvas<Window>, grid: &Grid, viewstate: &mut ViewState) {
-    let (
-        mouse_x,
-        mouse_y,
-        scale,
-        cam_x,
-        cam_y) = (
+fn draw_selection(canvas: &mut Canvas<Window>, grid: &Grid, viewstate: ViewState) {
+    let (mouse_x, mouse_y, scale, cam_x, cam_y) = (
         viewstate.mouse_pos.x,
         viewstate.mouse_pos.y,
         viewstate.zoom,
         viewstate.camera_pos.x,
-        viewstate.camera_pos.y
+        viewstate.camera_pos.y,
     );
 
     let world_x = mouse_x - cam_x;
@@ -137,10 +148,12 @@ fn draw_selection(canvas: &mut Canvas<Window>, grid: &Grid, viewstate: &mut View
     let screen_x = select_world_x + cam_x;
     let screen_y = select_world_y + cam_y;
 
-    canvas.draw_rect(FRect {
-        x: screen_x,
-        y: screen_y,
-        w: scale,
-        h: scale,
-    }).unwrap();
+    canvas
+        .draw_rect(FRect {
+            x: screen_x,
+            y: screen_y,
+            w: scale,
+            h: scale,
+        })
+        .unwrap();
 }
