@@ -43,3 +43,9 @@ pub struct RenderCtx<'a> {
     pub font: &'a Font<'a>,
 }
 
+#[derive(Debug, Clone)]
+pub struct UpdateResult {
+    pub next_grid: crate::gol::Grid,
+    pub compute_time: Duration,
+}
+

@@ -17,7 +17,7 @@ use std::sync::mpsc::{self, TryRecvError};
 use std::thread;
 use std::time::{Duration, Instant};
 use types::{Vector2, ViewState};
-use crate::types::RenderCtx;
+use crate::types::{RenderCtx, UpdateResult};
 
 fn handle_font_error<'font>(e: Error, font_context: Sdl3TtfContext) -> Font<'font> {
     warn!("Couldn't load font: {}", e);
@@ -81,13 +81,15 @@ fn main() {
     let mut speed = 14usize;
 
     let (next_grid_request_tx, next_grid_request_rx) = mpsc::channel::<Grid>();
-    let (next_grid_result_tx, next_grid_result_rx) = mpsc::channel::<Grid>();
+    let (next_grid_result_tx, next_grid_result_rx) = mpsc::channel::<UpdateResult>();
 
     thread::spawn(move || {
         while let Ok(current_grid_snapshot) = next_grid_request_rx.recv() {
+            let start = Instant::now();
             let next = GOL::update_from(&current_grid_snapshot);
-            thread::sleep(Duration::from_millis(speed as u64));
-            if next_grid_result_tx.send(next).is_err() {
+            let compute_time = Instant::now() - start;
+            let result = UpdateResult { next_grid: next, compute_time };
+            if next_grid_result_tx.send(result).is_err() {
                 break;
             }
         }
@@ -299,8 +301,9 @@ fn main() {
         }
 
         match next_grid_result_rx.try_recv() {
-            Ok(next_grid) => {
-                gol.grid = next_grid;
+            Ok(update) => {
+                thread::sleep(Duration::from_millis(speed as u64 / update.compute_time.as_millis().max(1) as u64));
+                gol.grid = update.next_grid;
                 update_in_progress = false;
             }
             Err(TryRecvError::Empty) => {}
