@@ -1,8 +1,6 @@
 use crate::gol::GOL;
-use sdl3::render::{Canvas, TextureCreator};
-use sdl3::ttf::Font;
-use sdl3::video::{Window, WindowContext};
 use std::time::Duration;
+use raylib::prelude::{Font, RaylibDrawHandle};
 
 #[derive(Debug, Copy, Clone, PartialEq, Default)]
 pub struct Vector2 {
@@ -35,12 +33,12 @@ impl Default for ViewState {
 
 pub struct RenderCtx<'a> {
     pub gol: GOL,
-    pub frame_time: Duration,
     pub viewstate: ViewState,
     pub speed: usize,
-    pub canvas: &'a mut Canvas<Window>,
-    pub texture_creator: &'a mut TextureCreator<WindowContext>,
-    pub font: &'a Font<'a>,
+    pub canvas: RaylibDrawHandle<'a>,
+    pub font: Option<Font>,
+    pub show_help: bool,
+    pub ui_wants_mouse: bool,
 }
 
 #[derive(Debug, Clone)]

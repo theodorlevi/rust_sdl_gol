@@ -4,7 +4,6 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-sdl3 = { version = "0.14.41", features = ["build-from-source", "ttf"] }
 log = "0.4.27"
-tokio = { version = "1.47.1", features = ["rt", "rt-multi-thread", "macros", "time"] }
+raylib = { version = "5.5.1", features = ["imgui", "wayland"] }
 rayon = "1.11.0"

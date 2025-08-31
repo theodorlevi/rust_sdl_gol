@@ -1,127 +1,95 @@
 use crate::gol::Grid;
 use crate::types::{RenderCtx, ViewState};
-use sdl3::pixels::Color;
-use sdl3::render::{Canvas, FPoint, FRect, TextureCreator};
-use sdl3::ttf::Font;
-use sdl3::video::{Window, WindowContext};
-
+use raylib::drawing::RaylibDrawHandle;
+use raylib::prelude::{Color, RayImGUITrait, RaylibDraw, RaylibDrawGui};
+use std::cell::Cell;
+use std::cell::RefCell;
 
 pub fn draw_frame(render_ctx: &mut RenderCtx) {
-    render_ctx.canvas.set_draw_color(Color::RGB(0, 0, 0));
-    render_ctx.canvas.clear();
-
-    draw_cells(&mut render_ctx.gol.grid, render_ctx.canvas, render_ctx.viewstate);
-
-    draw_selection(render_ctx.canvas, &render_ctx.gol.grid, render_ctx.viewstate);
-
-    draw_text(
-        render_ctx.font,
-        render_ctx.canvas,
-        render_ctx.frame_time.as_millis().to_string().as_str(),
-        24.0,
-        Color::RGB(255, 255, 255),
-        10.0,
-        16.0,
-        render_ctx.texture_creator,
-    );
-    if render_ctx.gol.paused {
-        draw_text(
-            render_ctx.font,
-            render_ctx.canvas,
-            "PAUSED",
-            24.0,
-            Color::RGB(255, 0, 0),
-            10.0,
-            32.0,
-            render_ctx.texture_creator,
-        )
+    if let Some(font) = render_ctx.font.as_mut() {
+        render_ctx.canvas.gui_set_font(font);
     }
+    render_ctx.canvas.clear_background(Color::BLACK);
+    
+    draw_cells(&mut render_ctx.gol.grid, &mut render_ctx.canvas, render_ctx.viewstate);
+    draw_selection(&mut render_ctx.canvas, &render_ctx.gol.grid, render_ctx.viewstate);
 
-    draw_text(
-        render_ctx.font,
-        render_ctx.canvas,
-        format!("{:.3}x zoom", render_ctx.viewstate.zoom).as_str(),
-        24.0,
-        Color::RGB(255, 255, 255),
-        10.0,
-        48.0,
-        render_ctx.texture_creator,
-    );
+    let paused_cell = RefCell::new(render_ctx.gol.paused);
+    let speed_cell = RefCell::new(render_ctx.speed as i32);
+    let cells_alive = render_ctx.gol.grid.get_grid().len();
+    let zoom_val = render_ctx.viewstate.zoom;
 
-    draw_text(
-        render_ctx.font,
-        render_ctx.canvas,
-        format!("{}/ speed", render_ctx.speed).as_str(),
-        24.0,
-        Color::RGB(255, 255, 255),
-        10.0,
-        64.0,
-        render_ctx.texture_creator,
-    );
+    let want_mouse_cell = Cell::new(false);
+    render_ctx.canvas.draw_imgui(|ui| {
+        ui.window("Controls").build(|| {
+            ui.text("Game of Life");
+            ui.separator();
+            {
+                let mut p = paused_cell.borrow_mut();
+                ui.checkbox("Paused", &mut *p);
+            }
+            ui.text("Speed (ms per gen)");
+            {
+                let mut s = speed_cell.borrow_mut();
+                ui.slider("##speed", 0, 100, &mut *s);
+            }
+            ui.separator();
+            ui.text(format!("Cells alive: {}", cells_alive));
+            ui.text(format!("Zoom: {:.2}", zoom_val));
+            ui.separator();
+            ui.text("Press F1 for help")
+        });
 
-    render_ctx.canvas.present();
+        if render_ctx.show_help {
+            ui.window("Help/About").build(|| {
+                ui.text("This is a simple implementation of Conway's Game of Life.");
+                ui.text("It is written in Rust using the Raylib library.");
+                ui.text("The source code is available on GitHub.");
+                ui.text("https://github.com/theodorlevi/rust-gol-raylib");
+                ui.separator();
+                ui.text("Controls:");
+                ui.text("W,A,S,D to Move camera");
+                ui.text("Left mouse to create a live cell");
+                ui.text("Right mouse to kill a live cell");
+                ui.text("Space to Pause/unpause");
+                ui.text("Tab to step forward one generation");
+                ui.text("R - Reset");
+        });
+        }
+        want_mouse_cell.set(ui.io().want_capture_mouse);
+    });
+    render_ctx.gol.paused = paused_cell.into_inner();
+    render_ctx.speed = speed_cell.into_inner().max(0) as usize;
+    render_ctx.ui_wants_mouse = want_mouse_cell.get();
 }
 
 fn round_down_to_multiple(n: f32, step: f32) -> f32 {
     (n / step).floor() * step
 }
 
-fn draw_text(
-    font: &Font,
-    canvas: &mut Canvas<Window>,
-    text: &str,
-    font_size: f32,
-    color: Color,
-    x: f32,
-    y: f32,
-    texture_creator: &mut TextureCreator<WindowContext>,
-) {
-    let text_texture = texture_creator
-        .create_texture_from_surface(
-            font.render(format!("{}", text).as_str())
-                .blended(color)
-                .unwrap(),
-        )
-        .unwrap();
-
-    canvas
-        .copy(
-            &text_texture,
-            None,
-            FRect {
-                x,
-                y,
-                w: (font_size / 2.0) * text.len() as f32,
-                h: font_size,
-            },
-        )
-        .unwrap();
-}
-
-fn draw_cells(grid: &mut Grid, canvas: &mut Canvas<Window>, viewstate: ViewState) {
-    canvas.set_draw_color(Color::RGB(255, 255, 255));
+fn draw_cells(grid: &mut Grid, canvas: &mut RaylibDrawHandle, viewstate: ViewState) {
     for cell in grid.get_grid() {
         if viewstate.zoom <= 1.0 {
             canvas
-                .draw_point(FPoint {
-                    x: cell.y as f32 * viewstate.zoom + viewstate.camera_pos.x,
-                    y: cell.x as f32 * viewstate.zoom + viewstate.camera_pos.y,
-                })
-                .unwrap();
+                .draw_pixel(
+                    (cell.y as f32 * viewstate.zoom + viewstate.camera_pos.x) as i32,
+                    (cell.x as f32 * viewstate.zoom + viewstate.camera_pos.y) as i32,
+                    Color::WHITE,
+                );
         } else {
             canvas
-                .fill_rect(FRect {
-                    x: cell.y as f32 * viewstate.zoom + viewstate.camera_pos.x,
-                    y: cell.x as f32 * viewstate.zoom + viewstate.camera_pos.y,
-                    w: viewstate.zoom,
-                    h: viewstate.zoom,
-                })
-                .unwrap();
+                .draw_rectangle(
+                    (cell.y as f32 * viewstate.zoom + viewstate.camera_pos.x) as i32,
+                    (cell.x as f32 * viewstate.zoom + viewstate.camera_pos.y) as i32,
+                    viewstate.zoom as i32,
+                    viewstate.zoom as i32,
+                    Color::WHITE,
+                );
         }
     }
 }
 
-fn draw_selection(canvas: &mut Canvas<Window>, grid: &Grid, viewstate: ViewState) {
+fn draw_selection(canvas: &mut RaylibDrawHandle, grid: &Grid, viewstate: ViewState) {
     let (mouse_x, mouse_y, scale, cam_x, cam_y) = (
         viewstate.mouse_pos.x,
         viewstate.mouse_pos.y,
@@ -139,21 +107,15 @@ fn draw_selection(canvas: &mut Canvas<Window>, grid: &Grid, viewstate: ViewState
     let x = (select_world_y / scale) as isize;
     let y = (select_world_x / scale) as isize;
 
-    if grid.get_cell(x, y) {
-        canvas.set_draw_color(Color::RGB(255, 0, 0));
-    } else {
-        canvas.set_draw_color(Color::RGB(0, 255, 0));
-    }
-
     let screen_x = select_world_x + cam_x;
     let screen_y = select_world_y + cam_y;
 
     canvas
-        .draw_rect(FRect {
-            x: screen_x,
-            y: screen_y,
-            w: scale,
-            h: scale,
-        })
-        .unwrap();
+        .draw_rectangle_lines(
+            screen_x as i32,
+            screen_y as i32,
+            scale as i32,
+            scale as i32,
+            if grid.get_cell(x, y) { Color::RED } else { Color::GREEN },
+        );
 }

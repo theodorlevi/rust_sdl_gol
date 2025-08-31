@@ -1,6 +1,7 @@
 use rayon::iter::ParallelIterator;
 use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator};
 use std::collections::HashSet;
+use std::thread;
 
 #[derive(Debug, Clone, PartialEq, Eq, Copy, Hash)]
 pub struct Vec2Isize {
@@ -78,7 +79,8 @@ impl GOL {
         }
     }
 
-    pub(crate) fn update_from(grid: &Grid) -> Grid {
+    pub(crate) fn update_from(grid: &Grid, delay: u64) -> Grid {
+        let start_time = std::time::Instant::now();
         rayon::ThreadPoolBuilder::new()
             .num_threads(rayon::current_num_threads())
             .build()
@@ -127,7 +129,8 @@ impl GOL {
                 }
             })
             .collect();
-
+        let end_time = std::time::Instant::now();
+        thread::sleep(std::time::Duration::from_micros((delay * 1000).saturating_sub(end_time.duration_since(start_time).as_micros() as u64)));
         Grid { grid: next_cells }
     }
 
