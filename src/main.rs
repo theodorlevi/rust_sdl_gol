@@ -237,8 +237,6 @@ fn main() {
             }
         }
 
-        println!("{:?}", viewstate.camera_pos);
-
         {
             let canvas = rl.begin_drawing(&thread);
             let mut render_ctx = RenderCtx {
