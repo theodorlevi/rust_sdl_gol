@@ -37,7 +37,7 @@ fn main() {
     info!("initialized SDL3");
 
     let window = video_subsystem
-        .window("rust-sdl3 demo", 800, 600)
+        .window("Game of Life", 800, 600)
         .position_centered()
         .resizable()
         .build()
